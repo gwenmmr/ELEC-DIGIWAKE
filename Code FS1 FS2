@@ -1,0 +1,67 @@
+#include <Wire.h>
+#include <SPI.h>
+#include <ds3231.h>
+#include <LedControl.h>
+#include <RTClib.h>
+#include <TimerOne.h>
+
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+struct ts temps; // Structure pour le temps
+
+int DIN = 13; // Broche de données pour la matrice LED
+int CLK = 11;  // Broche d'horloge pour la matrice LED
+int CS = 10;   // Broche CS pour la matrice LED
+
+byte chiffre[10][8] = {
+  {B01111110, B01000010, B01000010, B01000010, B01000010, B01000010, B01000010, B01111110}, // 0
+  {B00001000, B00011000, B00101000, B00001000, B00001000, B00001000, B00001000, B00011100}, // 1
+  {B01111110, B00000010, B00000010, B01111110, B01000000, B01000000, B01000000, B01111110}, // 2
+  {B01111110, B00000010, B00000010, B01111110, B00000010, B00000010, B00000010, B01111110}, // 3
+  {B01000010, B01000010, B01000010, B01111110, B00000010, B00000010, B00000010, B00000010}, // 4
+  {B01111110, B01000000, B01000000, B01111110, B00000010, B00000010, B00000010, B01111110}, // 5
+  {B01111110, B01000000, B01000000, B01111110, B01000010, B01000010, B01000010, B01111110}, // 6
+  {B01111110, B00000010, B00000010, B00000010, B00000010, B00000010, B00000010, B00000010}, // 7
+  {B01111110, B01000010, B01000010, B01111110, B01000010, B01000010, B01000010, B01111110}, // 8
+  {B01111110, B01000010, B01000010, B01111110, B00000010, B00000010, B00000010, B01111110}, // 9
+};
+
+LedControl lc(DIN, CLK, CS, 4);//FS1 FS2
+
+void setup() {
+  Serial.begin(9600);
+  Wire.begin();
+  DS3231_init(DS3231_CONTROL_INTCN);
+  temps.hour = 00;
+  temps.min = 00;
+  temps.sec = 00;//def du temps sur le rtc
+
+  lc.shutdown(0, false);
+  lc.setIntensity(0, 4);
+  lc.shutdown(1, false);
+  lc.setIntensity(1, 4);
+  lc.shutdown(2, false);
+  lc.setIntensity(2, 4);
+  lc.shutdown(3, false);
+  lc.setIntensity(3, 4);
+
+  DS3231_set(temps);
+}
+
+void loop() {
+  DS3231_get(&temps);
+
+  int unite_minutes = temps.min % 10;
+  int dizaine_minutes = temps.min / 10;
+  int unite_heures = temps.hour % 10;
+  int dizaine_heures = temps.hour / 10;
+
+  for (int i = 0; i < 8; i++){
+    lc.setRow(0, i, chiffre[unite_minutes][i]);
+    lc.setRow(1, i, chiffre[dizaine_minutes][i]);
+    lc.setRow(2, i, chiffre[unite_heures][i]);
+    lc.setRow(3, i, chiffre[dizaine_heures][i]);
+  }
+  delay(1000);
+}
