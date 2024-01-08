@@ -1,0 +1,96 @@
+#include <Arduino.h>
+#include <NewPing.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <EEPROM.h>
+
+// Configuration du buzzer
+const int buzzerPin = 9;
+const int melodyDuration = 10000; // Durée totale de la mélodie en millisecondes
+const int alarmDuration = 20000;  // Durée maximale du signal d'alarme en millisecondes
+const int noteDelay = 500;       // Délai entre chaque note de la mélodie en millisecondes
+
+// Mélodie du buzzer
+const int melody[] = {
+  NOTE_E4, NOTE_FS4, NOTE_G4, NOTE_A4, NOTE_B4, NOTE_C5, NOTE_D5, NOTE_E5,
+  NOTE_E5, NOTE_D5, NOTE_C5, NOTE_B4, NOTE_A4, NOTE_G4, NOTE_FS4, NOTE_E4
+};
+
+const int noteDurations[] = {
+  8, 8, 4, 8, 8, 4, 8, 8,
+  8, 8, 4, 8, 8, 4, 8, 8
+};
+
+// Configuration du capteur ultrason
+const int triggerPin = 9;
+const int echoPin = 10;
+const int interruptPin = 2;
+
+volatile unsigned long startTime = 0;
+volatile unsigned long endTime = 0;
+volatile boolean triggered = false;
+
+NewPing sonar(triggerPin, echoPin);
+
+void interruptHandler() {
+  if (digitalRead(interruptPin) == LOW) {
+    startTime = micros();
+  } else {
+    endTime = micros();
+    triggered = true;
+  }
+}
+
+// Fonction pour jouer la mélodie sur le buzzer
+void playMelody() {
+  int startTime = millis();
+
+  for (int i = 0; i < sizeof(melody) / sizeof(melody[0]); ++i) {
+    int noteDuration = noteDurations[i];
+    tone(buzzerPin, melody[i], noteDuration * noteDelay);
+    delay(noteDuration * noteDelay);
+  }
+
+  noTone(buzzerPin);
+
+  int elapsedTime = millis() - startTime;
+  if (elapsedTime < melodyDuration) {
+    delay(melodyDuration - elapsedTime);
+  }
+}
+
+void setup() {
+  pinMode(buzzerPin, OUTPUT);
+  pinMode(interruptPin, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(interruptPin), interruptHandler, FALLING);
+
+  Wire.begin();
+  Serial.begin(9600);
+
+  // Initialiser d'autres composants et configurations au besoin
+
+  if (!display.begin(SSD1306_I2C, 0x3C)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    for (;;);
+  }
+
+  display.display();
+  delay(2000);
+  display.clearDisplay();
+}
+
+void loop() {
+  // Exemple : Vérifier si le réveil doit sonner et appeler la fonction playMelody() en conséquence
+  // (Utilisez des conditions basées sur l'heure, les boutons, etc.)
+
+  // Si le réveil doit sonner
+  if (/* Condition pour déclencher le réveil */) {
+    playMelody();
+
+    // Attendre la durée maximale du signal d'alarme
+    delay(alarmDuration);
+  }
+
+  // Ajoutez d'autres tâches du programme selon vos besoins
+}
