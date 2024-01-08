@@ -1,0 +1,134 @@
+#include <U8g2lib.h>
+#include <ClickEncoder.h>
+#include <TimerOne.h>
+
+int encoderValue = 0;
+bool alarmActive = false;
+int alarmHour = 0;
+int alarmMinute = 0;
+
+// LED pin
+const int ledPin = 8;
+
+U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ A5, /* data=*/ A4);
+ClickEncoder encoder(2, 3, 4); // Pins A2, A1, and A0 are used for the ClickEncoder, and pin 2 is used for the button
+
+const int MENU_ITEMS = 5;
+const char *menuOptions[MENU_ITEMS] = {"Regler le reveil", "Regler l'heure", "Format de l'heure", "Temps pour eteindre le reveil", "Effacement des donnees"};
+
+int selectedOption = 0;
+
+void displayMenu() {
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_6x10_tf);
+  for (int i = 0; i < MENU_ITEMS; ++i) {
+    char buffer[20];
+    if (i == selectedOption) {
+      snprintf(buffer, sizeof(buffer), "> %s", menuOptions[i]);
+    } else {
+      snprintf(buffer, sizeof(buffer), "  %s", menuOptions[i]);
+    }
+    u8g2.drawStr(0, (i + 1) * 12, buffer);
+  }
+  u8g2.sendBuffer();
+}
+
+void activateAlarm() {
+  alarmActive = true;
+  digitalWrite(ledPin, HIGH);
+}
+
+void setAlarmTime() {
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_6x10_tf);
+
+  int initialMinute = alarmMinute;  // Sauvegarde de la minute initiale pour éviter l'activation immédiate
+
+  while (true) {
+    char buffer[10];
+    snprintf(buffer, sizeof(buffer), "%02d:%02d", alarmHour, alarmMinute);
+
+    u8g2.clearBuffer();
+    u8g2.drawStr(10, 20, buffer);
+    u8g2.sendBuffer();  // Met à jour l'écran à chaque itération dans la boucle loop
+
+    int encoderDelta = encoder.getValue();
+    if (encoderDelta != 0) {
+      alarmMinute += encoderDelta;
+
+      if (alarmMinute < 0) {
+        alarmMinute = 59;
+      } else if (alarmMinute > 59) {
+        alarmMinute = 0;
+      }
+    }
+
+    if (encoder.getButton() == ClickEncoder::Clicked) {
+      // Button clicked, exit the loop
+      break;
+    }
+
+    delay(100);
+  }
+
+  // Vérifie si l'heure a été réellement modifiée avant d'activer l'alarme
+  if (initialMinute != alarmMinute) {
+    // Alarm time is set, activate the alarm
+    activateAlarm();
+  }
+}
+
+void setup() {
+  pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPin, LOW);
+
+  u8g2.begin();
+  encoder.setAccelerationEnabled(true);
+  encoder.setButtonHeldEnabled(true);
+  Timer1.initialize(1000);
+  Timer1.attachInterrupt([]() { encoder.service(); });
+  displayMenu();
+}
+
+void handleMenuSelection() {
+  switch (selectedOption) {
+    case 0:
+      // Code to handle "Regler le reveil"
+      setAlarmTime();
+      break;
+    case 1:
+      // Code to handle "Regler l'heure"
+      break;
+    case 2:
+      // Code to handle "Format de l'heure"
+      break;
+    case 3:
+      // Code to handle "Temps pour eteindre le reveil"
+      break;
+    case 4:
+      // Code to handle "Effacement des donnees"
+      break;
+  }
+}
+
+void loop() {
+  ClickEncoder::Button buttonState = encoder.getButton();
+
+  if (buttonState == ClickEncoder::Clicked) {
+    handleMenuSelection();
+    delay(500); // Anti-rebond
+    displayMenu();  // Show the menu after handling selection
+    u8g2.sendBuffer();  // Met à jour l'écran après chaque sélection dans le menu
+    delay(100);     // Small delay to avoid potential issues
+  }
+
+  encoderValue += encoder.getValue();
+
+  if (encoderValue != 0) {
+    selectedOption = (selectedOption + encoderValue + MENU_ITEMS) % MENU_ITEMS;
+    displayMenu();
+    encoderValue = 0;
+    u8g2.sendBuffer();  // Met à jour l'écran après chaque changement dans le menu
+    delay(100);
+  }
+}
